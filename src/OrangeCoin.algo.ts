@@ -1,8 +1,13 @@
 import { Contract } from '@algorandfoundation/tealscript';
 
 const TOKEN_SUPPLY = 4000000_000000;
+const MINER_REWARD = 4194304;
 const TOKEN_DECIMALS = 6;
 const BLOCKS_TIMEOUT = 5;
+const LAST_HALVING = 14;
+// testnet: 1702857600
+// mainnet: 1704067200
+const START_TIMESTAMP = 1702857600;
 
 class OrangeCoin extends Contract {
   token = GlobalStateKey<Asset>({ key: 'token' });
@@ -22,6 +27,8 @@ class OrangeCoin extends Contract {
   currentMiner = GlobalStateKey<Address>({ key: 'current_miner' });
   currentMinerEffort = GlobalStateKey<number>({ key: 'current_miner_effort' });
 
+  startTimestamp = GlobalStateKey<number>({ key: 'start_timestamp' });
+
   minerEfforts = LocalStateKey<number>({ key: 'effort' });
 
   @allow.bareCreate()
@@ -35,19 +42,15 @@ class OrangeCoin extends Contract {
     this.halving.value = 0;
     this.halvingSupply.value = TOKEN_SUPPLY / 2;
     this.minedSupply.value = 0;
-    this.minerReward.value = 4194304;
+    this.minerReward.value = MINER_REWARD;
 
     this.lastMiner.value = Address.zeroAddress;
     this.lastMinerEffort.value = 0;
 
     this.currentMiner.value = Address.zeroAddress;
     this.currentMinerEffort.value = 0;
-  }
 
-  @allow.bareCall('OptIn')
-  @allow.call('OptIn')
-  useLocalState(): void {
-    this.minerEfforts(this.txn.sender).value = 0;
+    this.startTimestamp.value = START_TIMESTAMP;
   }
 
   private createAsset(): void {
@@ -65,12 +68,17 @@ class OrangeCoin extends Contract {
     });
   }
 
-  private checkBlock(): void {
+  @allow.bareCall('OptIn')
+  useLocalState(): void {
     if (this.token.value === Asset.zeroIndex) {
       this.createAsset();
     }
 
-    if (this.halving.value === 15) {
+    this.minerEfforts(this.txn.sender).value = 0;
+  }
+
+  private checkBlock(): void {
+    if (this.halving.value === LAST_HALVING + 1) {
       this.currentMinerEffort.value = 0;
       this.minerReward.value = 0;
 
@@ -99,7 +107,7 @@ class OrangeCoin extends Contract {
         if (this.halvingSupply.value === 0) {
           this.halving.value = this.halving.value + 1;
 
-          if (this.halving.value === 14) {
+          if (this.halving.value === LAST_HALVING) {
             this.halvingSupply.value = TOKEN_SUPPLY - this.minedSupply.value;
           } else {
             this.halvingSupply.value =
@@ -128,6 +136,7 @@ class OrangeCoin extends Contract {
 
   mine(to: Address): void {
     assert(this.minerEfforts(to).exists);
+    assert(globals.latestTimestamp >= this.startTimestamp.value);
     assert(this.txn.fee <= 20000);
 
     this.checkBlock();
@@ -135,11 +144,20 @@ class OrangeCoin extends Contract {
     this.totalEffort.value = this.totalEffort.value + this.txn.fee;
     this.totalTransactions.value = this.totalTransactions.value + 1;
 
-    this.minerEfforts(to).value = this.minerEfforts(to).value + this.txn.fee;
+    const totalMinerEffort = this.minerEfforts(to).value + this.txn.fee;
+    this.minerEfforts(to).value = totalMinerEffort;
 
-    if (this.minerEfforts(to).value > this.currentMinerEffort.value) {
+    let currentMinerEffort = totalMinerEffort;
+    if (this.lastMiner.value === to) {
+      currentMinerEffort =
+        currentMinerEffort > this.lastMinerEffort.value
+          ? totalMinerEffort - this.lastMinerEffort.value
+          : 0;
+    }
+
+    if (currentMinerEffort > this.currentMinerEffort.value) {
       this.currentMiner.value = to;
-      this.currentMinerEffort.value = this.minerEfforts(to).value;
+      this.currentMinerEffort.value = currentMinerEffort;
     }
   }
 }

@@ -11,6 +11,8 @@ const algodClient = new algosdk.Algodv2(
   ALGOD_PORT as string,
 );
 
+const timestamp = ALGOD_SERVER?.includes('testnet') ? 1702857600 : 1704067200;
+
 const creator = algosdk.mnemonicToSecretKey(DEPLOYER_MNEMONIC as string);
 
 async function deploy(name: string, buildPath: string, extras: number[]) {
@@ -64,6 +66,7 @@ async function deploy(name: string, buildPath: string, extras: number[]) {
   suggestedParams.flatFee = true;
   suggestedParams.fee = 2000;
 
+  console.log('Timestamp:', timestamp);
   const appCreateTxn = algosdk.makeApplicationCreateTxnFromObject({
     from: creator.addr,
     approvalProgram: compiledApprovalProgram,
@@ -91,6 +94,8 @@ async function deploy(name: string, buildPath: string, extras: number[]) {
   );
 }
 
-deploy('Orange Coin', '../build', [2, 10, 0, 1, 0]).catch(e => {
+console.log(creator.addr);
+
+deploy('Orange Coin', '../build', [2, 11, 0, 1, 0]).catch(e => {
   console.error(e);
 });

@@ -17,7 +17,7 @@ const creator = algosdk.mnemonicToSecretKey(creator_mnemonic);
 const signer = algosdk.makeBasicAccountTransactionSigner(creator);
 
 async function mine() {
-  const assetIndex = 13209;
+  const assetIndex = 16904;
 
   const app_id = Number.parseInt(process.argv[2]);
   const atc = new algosdk.AtomicTransactionComposer();
@@ -31,7 +31,7 @@ async function mine() {
   const contract = new algosdk.ABIContract(abi);
   const suggestedParams = await algodClient.getTransactionParams().do();
 
-  //pay for asset creation
+  // pay for asset creation
   // atc.addTransaction({
   //   txn: algosdk.makePaymentTxnWithSuggestedParamsFromObject({
   //     from: 'ORANGESCU7XMR2TFXSFTOHCUHNP6OYEPIKZW3JZANTCDHVQYMGQFYFIDDA',

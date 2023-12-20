@@ -1,13 +1,20 @@
 import { Contract } from '@algorandfoundation/tealscript';
 
-const TOKEN_SUPPLY = 4000000_000000;
-const MINER_REWARD = 4194304;
-const TOKEN_DECIMALS = 6;
-const BLOCKS_TIMEOUT = 5;
-const LAST_HALVING = 14;
+const TOKEN_SUPPLY = 4000000_00000000;
+const MINER_REWARD = 2_09715200;
+const TOKEN_DECIMALS = 8;
+const BLOCKS_TIMEOUT = 10;
+const LAST_HALVING = 16;
+const NOTE =
+  "John Alan Woods 01/Dec/2023 You know, I can pull metrics out of the air too, whatever, 8 million transactions over the last week, I don't know, my mom has four oranges.";
+const IFPS_URL = 'ipfs://QmUitxJuPJJrcuAdAiVdEEpuzGmsELGgAvhLd5FiXRShEu#arc3';
+const IFPS_HASH = [
+  211, 253, 81, 190, 46, 232, 194, 177, 122, 122, 232, 38, 211, 73, 192, 223,
+  32, 254, 171, 138, 77, 104, 3, 3, 64, 28, 116, 21, 96, 195, 36, 54,
+] as StaticArray<uint<8>, 32>;
 // testnet: 1702857600
 // mainnet: 1704067200
-const START_TIMESTAMP = 1702857600;
+const START_TIMESTAMP = 1704067200;
 
 class OrangeCoin extends Contract {
   token = GlobalStateKey<Asset>({ key: 'token' });
@@ -58,13 +65,15 @@ class OrangeCoin extends Contract {
       configAssetName: 'Orange',
       configAssetUnitName: 'ORA',
       configAssetManager: this.app.address,
-      configAssetReserve: Address.zeroAddress,
+      configAssetReserve: this.app.address,
       configAssetFreeze: Address.zeroAddress,
       configAssetClawback: Address.zeroAddress,
       configAssetTotal: TOKEN_SUPPLY,
       configAssetDecimals: TOKEN_DECIMALS,
-      configAssetURL: 'https://oranges.meme',
+      configAssetURL: IFPS_URL,
+      configAssetMetadataHash: rawBytes(IFPS_HASH),
       fee: 0,
+      note: NOTE,
     });
   }
 
@@ -78,14 +87,6 @@ class OrangeCoin extends Contract {
   }
 
   private checkBlock(): void {
-    if (this.halving.value === LAST_HALVING + 1) {
-      this.currentMinerEffort.value = 0;
-      this.minerReward.value = 0;
-
-      log('Goodbye.');
-      return;
-    }
-
     const currentBlock = globals.round - (globals.round % BLOCKS_TIMEOUT);
 
     if (this.block.value !== currentBlock) {
@@ -100,6 +101,8 @@ class OrangeCoin extends Contract {
           assetReceiver: this.lastMiner.value,
           assetAmount: reward,
         });
+
+        log(concat(this.lastMiner.value, itob(this.lastMinerEffort.value)));
 
         this.minedSupply.value = this.minedSupply.value + reward;
         this.halvingSupply.value = this.halvingSupply.value - reward;
@@ -125,8 +128,6 @@ class OrangeCoin extends Contract {
             : 0;
       }
 
-      log(concat(this.currentMiner.value, itob(this.currentMinerEffort.value)));
-
       this.block.value = currentBlock;
       this.lastMiner.value = this.currentMiner.value;
       this.lastMinerEffort.value = this.currentMinerEffort.value;
@@ -137,6 +138,7 @@ class OrangeCoin extends Contract {
   mine(to: Address): void {
     assert(this.minerEfforts(to).exists);
     assert(globals.latestTimestamp >= this.startTimestamp.value);
+    assert(this.halving.value <= LAST_HALVING);
     assert(this.txn.fee <= 20000);
 
     this.checkBlock();
@@ -151,7 +153,7 @@ class OrangeCoin extends Contract {
     if (this.lastMiner.value === to) {
       currentMinerEffort =
         currentMinerEffort > this.lastMinerEffort.value
-          ? totalMinerEffort - this.lastMinerEffort.value
+          ? currentMinerEffort - this.lastMinerEffort.value
           : 0;
     }
 

@@ -1,9 +1,9 @@
 import { Contract } from '@algorandfoundation/tealscript';
 
 const TOKEN_SUPPLY = 4000000_00000000;
-const MINER_REWARD = 2_09715200;
+const MINER_REWARD = 1_04857600;
 const TOKEN_DECIMALS = 8;
-const BLOCKS_TIMEOUT = 10;
+const BLOCKS_TIMEOUT = 5;
 const LAST_HALVING = 16;
 const NOTE =
   "John Alan Woods 01/Dec/2023 You know, I can pull metrics out of the air too, whatever, 8 million transactions over the last week, I don't know, my mom has four oranges.";
@@ -110,7 +110,7 @@ class OrangeCoin extends Contract {
         if (this.halvingSupply.value === 0) {
           this.halving.value = this.halving.value + 1;
 
-          if (this.halving.value === LAST_HALVING) {
+          if (this.halving.value >= LAST_HALVING) {
             this.halvingSupply.value = TOKEN_SUPPLY - this.minedSupply.value;
           } else {
             this.halvingSupply.value =

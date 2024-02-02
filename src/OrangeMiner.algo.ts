@@ -164,9 +164,8 @@ class OrangeMiner extends Contract {
 
     const spentDelta = (this.spentPerToken.value -
       balance.spentPerToken) as uint128;
-    // 1 microalgo cost to ensure contract is not losing money due to lack of precision
-    const spentToDate =
-      1 + ((((balance.deposited as uint128) * spentDelta) / scale) as uint64);
+    const spentToDate = (((balance.deposited as uint128) * spentDelta) /
+      scale) as uint64;
     const rewardsDelta = (this.rewardPerToken.value -
       balance.rewardPerToken) as uint128;
     const rewardsToDate = (((balance.deposited as uint128) * rewardsDelta) /
@@ -219,10 +218,10 @@ class OrangeMiner extends Contract {
     const balance = this.balances(from).value;
     const toSend = wideRatio([balance.deposited, bps], [10000]);
 
-    if (toSend > 0) {
+    if (toSend > 1) {
       sendPayment({
         receiver: to,
-        amount: toSend,
+        amount: toSend - 1,
         fee: 0,
       });
 
@@ -281,7 +280,7 @@ class OrangeMiner extends Contract {
     // insert price into history at most once per round
     if (roundDifference > 0) {
       // if contract stopped juicing, clear the price history
-      if (roundDifference > 5) {
+      if (roundDifference > 10) {
         this.prices.value = castBytes<StaticArray<uint128, 10>>(bzero(160));
       }
       if (price < this.prices.value[0]) {
@@ -304,7 +303,7 @@ class OrangeMiner extends Contract {
           if (price <= this.prices.value[i]) {
             const index = 16 * i;
             this.prices.value = castBytes<StaticArray<uint128, 10>>(
-              extract3(rawBytes(this.prices.value), 16, index) +
+              extract3(rawBytes(this.prices.value), 16, index - 16) +
                 rawBytes(price) +
                 extract3(rawBytes(this.prices.value), index, 160 - index),
             );

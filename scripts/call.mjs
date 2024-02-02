@@ -210,7 +210,7 @@ async function main() {
 
   // await update(app_id, atc, suggestedParams);
   // config(contract, app_id, atc, suggestedParams);
-  // deposit(contract, app_id, atc, suggestedParams, 80000000);
+  // deposit(contract, app_id, atc, suggestedParams, 100000000);
   // withdraw(contract, app_id, atc, suggestedParams, 10000, 10000);
   mine(contract, app_id, atc, suggestedParams, lastMiner);
 

@@ -90,7 +90,6 @@ class OrangeMiner extends Contract {
     minDeposit: number,
     baseTxnFee: number,
     marketRateBps: number,
-    poolAddress: Address,
   ): void {
     assert(this.txn.sender === this.manager.value);
     assert(baseTxnFee >= globals.minTxnFee);
@@ -123,35 +122,33 @@ class OrangeMiner extends Contract {
     this.minDeposit.value = minDeposit;
     this.baseTxnFee.value = baseTxnFee;
     this.marketRateBps.value = marketRateBps;
-    this.poolAddress.value = poolAddress;
   }
 
   private updatePerToken(): void {
-    const scale = SCALE as uint128;
-    const recentlySpent = (this.totalSpent.value -
-      this.lastSpent.value) as uint128;
-
-    const currentRewards =
-      this.app.address.assetBalance(this.poolToken.value) +
-      this.totalWithdrawn.value;
-    const recentlyRewarded = (currentRewards -
-      this.lastRewards.value) as uint128;
-
-    let recentlySpentPerToken = 0 as uint128;
-    let recentlyRewardedPerToken = 0 as uint128;
-
     if (this.totalDeposited.value > 0) {
-      recentlySpentPerToken =
+      const scale = SCALE as uint128;
+      const recentlySpent = (this.totalSpent.value -
+        this.lastSpent.value) as uint128;
+
+      const currentRewards =
+        this.app.address.assetBalance(this.poolToken.value) +
+        this.totalWithdrawn.value;
+      const recentlyRewarded = (currentRewards -
+        this.lastRewards.value) as uint128;
+
+      const recentlySpentPerToken =
         (recentlySpent * scale) / (this.totalDeposited.value as uint128);
-      recentlyRewardedPerToken =
+      const recentlyRewardedPerToken =
         (recentlyRewarded * scale) / (this.totalDeposited.value as uint128);
+
+      this.spentPerToken.value =
+        this.spentPerToken.value + recentlySpentPerToken;
+      this.rewardPerToken.value =
+        this.rewardPerToken.value + recentlyRewardedPerToken;
+
       this.lastSpent.value = this.totalSpent.value;
       this.lastRewards.value = currentRewards;
     }
-
-    this.spentPerToken.value = this.spentPerToken.value + recentlySpentPerToken;
-    this.rewardPerToken.value =
-      this.rewardPerToken.value + recentlyRewardedPerToken;
   }
 
   private updateBalance(address: Address, deposit: number): void {
@@ -197,8 +194,10 @@ class OrangeMiner extends Contract {
   }
 
   private sendRewards(from: Address, to: Address, bps: number): void {
+    assert(bps <= 10000);
+
     const balance = this.balances(from).value;
-    const toSend = (balance.claimable * bps) / 10000;
+    const toSend = wideRatio([balance.claimable, bps], [10000]);
 
     if (toSend > 0) {
       sendAssetTransfer({
@@ -215,8 +214,10 @@ class OrangeMiner extends Contract {
   }
 
   private returnDeposit(from: Address, to: Address, bps: number): void {
+    assert(bps <= 10000);
+
     const balance = this.balances(from).value;
-    const toSend = (balance.deposited * bps) / 10000;
+    const toSend = wideRatio([balance.deposited, bps], [10000]);
 
     if (toSend > 0) {
       sendPayment({
@@ -231,9 +232,6 @@ class OrangeMiner extends Contract {
   }
 
   withdraw(rewardsBps: number, depositBps: number): void {
-    assert(rewardsBps <= 10000);
-    assert(depositBps <= 10000);
-
     this.updatePerToken();
     this.updateBalance(this.txn.sender, 0);
     this.sendRewards(this.txn.sender, this.txn.sender, rewardsBps);
@@ -266,6 +264,59 @@ class OrangeMiner extends Contract {
     this.sendRewards(address, this.txn.sender, 10000 - rewardsKeptBps);
   }
 
+  private updatePrice(): uint128 {
+    const roundDifference = globals.round - this.lastPriceRound.value;
+    const scale = SCALE as uint128;
+    // ORA in pool
+    const reservesA = this.poolApplication.value.localState(
+      this.poolAddress.value,
+      'asset_1_reserves',
+    ) as uint64;
+    // ALGO in pool
+    const reservesB = this.poolApplication.value.localState(
+      this.poolAddress.value,
+      'asset_2_reserves',
+    ) as uint64;
+    const price = ((reservesB as uint128) * scale) / (reservesA as uint128);
+    // insert price into history at most once per round
+    if (roundDifference > 0) {
+      // if contract stopped juicing, clear the price history
+      if (roundDifference > 5) {
+        this.prices.value = castBytes<StaticArray<uint128, 10>>(bzero(160));
+      }
+      if (price < this.prices.value[0]) {
+        // price is lower than all in the array
+        // move the array to the right, remove last element
+        // insert new price at the start
+        this.prices.value = castBytes<StaticArray<uint128, 10>>(
+          rawBytes(price) + extract3(rawBytes(this.prices.value), 0, 144),
+        );
+      } else if (price >= this.prices.value[9]) {
+        // price is higher than all in the array
+        // move the array to the left, remove first element
+        // insert new price at the end
+        this.prices.value = castBytes<StaticArray<uint128, 10>>(
+          extract3(rawBytes(this.prices.value), 16, 144) + rawBytes(price),
+        );
+      } else {
+        // insert price right before first higher element
+        for (let i = 1; i < 10; i = i + 1) {
+          if (price <= this.prices.value[i]) {
+            const index = 16 * i;
+            this.prices.value = castBytes<StaticArray<uint128, 10>>(
+              extract3(rawBytes(this.prices.value), 16, index) +
+                rawBytes(price) +
+                extract3(rawBytes(this.prices.value), index, 160 - index),
+            );
+            break;
+          }
+        }
+      }
+    }
+    this.lastPriceRound.value = globals.round;
+    return price;
+  }
+
   private addLiquidity(amountA: number, amountB: number): void {
     this.pendingGroup.addAssetTransfer({
       xferAsset: this.miningToken.value,
@@ -281,7 +332,6 @@ class OrangeMiner extends Contract {
     });
     this.pendingGroup.addAppCall({
       applicationID: this.poolApplication.value,
-      // todo: figure out how to calculate slippage properly
       applicationArgs: ['add_liquidity', 'flexible', itob(0)],
       assets: [this.poolToken.value],
       accounts: [this.poolAddress.value],
@@ -289,62 +339,6 @@ class OrangeMiner extends Contract {
     });
     this.pendingGroup.submit();
     this.totalSpent.value = this.totalSpent.value + amountB;
-  }
-
-  private updatePrice(): uint128 {
-    const roundDifference = globals.round - this.lastPriceRound.value;
-    const scale = SCALE as uint128;
-    // ORA in pool
-    const reservesA = this.poolApplication.value.localState(
-      this.poolAddress.value,
-      'asset_1_reserves',
-    ) as uint64;
-    // ALGO in pool
-    const reservesB = this.poolApplication.value.localState(
-      this.poolAddress.value,
-      'asset_2_reserves',
-    ) as uint64;
-    const price = ((reservesB as uint128) * scale) / (reservesA as uint128);
-    if (roundDifference > 0) {
-      if (roundDifference > 5) {
-        this.prices.value = castBytes<StaticArray<uint128, 10>>(bzero(160));
-      }
-      if (price < this.prices.value[0]) {
-        this.prices.value = castBytes<StaticArray<uint128, 10>>(
-          concat(
-            rawBytes(price),
-            extract3(rawBytes(this.prices.value), 0, 144),
-          ),
-        );
-      } else if (price >= this.prices.value[9]) {
-        this.prices.value = castBytes<StaticArray<uint128, 10>>(
-          extract3(rawBytes(this.prices.value), 16, 144) + rawBytes(price),
-        );
-      } else {
-        for (let i = 1; i < 10; i = i + 1) {
-          if (price <= this.prices.value[i]) {
-            const index = (i - 1) * 16;
-            this.prices.value = castBytes<StaticArray<uint128, 10>>(
-              extract3(rawBytes(this.prices.value), 0, index) +
-                rawBytes(price) +
-                extract3(rawBytes(this.prices.value), index + 16, 144 - index),
-            );
-            break;
-          }
-        }
-      }
-    }
-    this.lastPriceRound.value = globals.round;
-    return price;
-  }
-
-  private refundCall(): void {
-    sendPayment({
-      receiver: this.txn.sender,
-      amount: globals.minTxnFee,
-      fee: 0,
-    });
-    this.totalSpent.value = this.totalSpent.value + globals.minTxnFee;
   }
 
   mine(): void {
@@ -451,7 +445,14 @@ class OrangeMiner extends Contract {
       });
     }
 
-    this.refundCall();
+    // refund the caller with one min fee
+    sendPayment({
+      receiver: this.txn.sender,
+      amount: globals.minTxnFee,
+      fee: 0,
+    });
+    this.totalSpent.value = this.totalSpent.value + globals.minTxnFee;
+
     if (addLiquidity) {
       this.addLiquidity(
         minedRewards,

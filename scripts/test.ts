@@ -4,32 +4,38 @@ let remaining = 500000;
 
 const fees = [];
 
-console.log('To spend:', remaining / Math.pow(10, 6), 'ALGO');
+let prices = new Array(10).fill(0);
 
-while (remaining > 0 && transactionsToMake > 0) {
-  let fee = Math.floor(remaining / transactionsToMake);
-
-  if (transactionsToMake === 256 && fee < 2000) {
-    fee = 2000;
+function insert(price: number) {
+  if (price < prices[0]) {
+    // price is lower than all in the array
+    // move the array to the right, remove last element
+    // insert new price at the start
+    prices = [price, ...prices.slice(0, 9)];
+  } else if (price >= prices[9]) {
+    // price is higher than all in the array
+    // move the array to the left, remove first element
+    // insert new price at the end
+    prices = [...prices.slice(1), price];
+  } else {
+    // insert price right before first higher element
+    for (let i = 1; i < 10; i = i + 1) {
+      if (price <= prices[i]) {
+        prices = [...prices.slice(1, i), price, ...prices.slice(i)];
+        break;
+      }
+    }
   }
-
-  if (fee < 1000) {
-    fee = 1000;
-  }
-
-  if (remaining < 1000 + fee) {
-    fee = remaining;
-  }
-
-  fees.push(fee);
-
-  transactionsToMake -= 1;
-  remaining -= fee;
 }
 
-console.log('Fees:', [
-  ...fees.slice(0, 10),
-  '...',
-  ...fees.slice(fees.length - 10),
-]);
-console.log('Total txns:', fees.length);
+let price = 1000;
+
+function addNumber() {
+  price += Math.random() * 20 - 10;
+  insert(price);
+  console.log(price, prices[2], (price / prices[2]).toFixed(2), prices);
+
+  setTimeout(addNumber, 1000);
+}
+
+addNumber();

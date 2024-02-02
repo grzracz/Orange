@@ -1,5 +1,7 @@
 import { Contract } from '@algorandfoundation/tealscript';
 
+// tealscript 0.65.0
+
 const TOKEN_SUPPLY = 4000000_00000000;
 const MINER_REWARD = 1_04857600;
 const TOKEN_DECIMALS = 8;

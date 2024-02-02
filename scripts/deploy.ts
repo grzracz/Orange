@@ -94,8 +94,7 @@ async function deploy(name: string, buildPath: string, extras: number[]) {
   );
 }
 
-console.log(creator.addr);
 
-deploy('Orange Coin', '../build', [2, 11, 0, 1, 0]).catch(e => {
+deploy('Orange Miner', '../build', [32, 32, 0, 0, 3]).catch(e => {
   console.error(e);
 });

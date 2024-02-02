@@ -1,11 +1,11 @@
 {
   "scripts": {
-    "compile": "npx tealscript src/OrangeCoin.algo.ts build/",
+    "compile": "npx tealscript src/OrangeMiner.algo.ts build/",
     "deploy": "yarn compile && bash ./scripts/deploy.sh",
     "call": "bash ./scripts/call.sh"
   },
   "dependencies": {
-    "@algorandfoundation/tealscript": "^0.65.0",
+    "@algorandfoundation/tealscript": "^0.80.0",
     "algosdk": "^2.7.0"
   },
   "devDependencies": {

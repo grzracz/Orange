@@ -179,6 +179,8 @@ class OrangeMiner extends Contract {
     balance.rewardPerToken = this.rewardPerToken.value;
     balance.totalSpent = balance.totalSpent + spentToDate;
 
+    log(rawBytes(balance));
+
     this.totalDeposited.value = this.totalDeposited.value + balance.deposited;
   }
 

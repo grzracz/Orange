@@ -151,7 +151,7 @@ class OrangeMiner extends Contract {
     }
   }
 
-  private updateBalance(address: Address, deposit: number): void {
+  private updateBalance(address: Address, deposit: number): number {
     if (!this.balances(address).exists) {
       this.balances(address).create(BOX_SIZE);
       deposit = deposit - BOX_COST;
@@ -180,6 +180,8 @@ class OrangeMiner extends Contract {
     balance.totalSpent = balance.totalSpent + spentToDate;
 
     this.totalDeposited.value = this.totalDeposited.value + balance.deposited;
+
+    return spentToDate;
   }
 
   deposit(): void {
@@ -192,12 +194,11 @@ class OrangeMiner extends Contract {
     this.updateBalance(this.txn.sender, payment.amount);
 
     log(rawBytes(this.balances(this.txn.sender).value));
-
   }
 
   private sendRewards(from: Address, to: Address, bps: number): void {
     const balance = this.balances(from).value;
-    const toSend = wideRatio([balance.claimable, bps], [10000]);
+    const toSend = (balance.claimable * bps) / 10000;
 
     if (toSend > 0) {
       sendAssetTransfer({
@@ -215,7 +216,7 @@ class OrangeMiner extends Contract {
 
   private returnDeposit(from: Address, to: Address, bps: number): void {
     const balance = this.balances(from).value;
-    const toSend = wideRatio([balance.deposited, bps], [10000]);
+    const toSend = (balance.deposited * bps) / 10000;
 
     if (toSend > 1) {
       sendPayment({
@@ -248,23 +249,18 @@ class OrangeMiner extends Contract {
     assert(payment.receiver === this.app.address);
 
     this.updatePerToken();
-
     const balance = this.balances(address).value;
-    const scale = SCALE as uint128;
+    const deposited = balance.deposited;
+    const spent = this.updateBalance(address, payment.amount);
 
-    const totalDeposit = payment.amount + balance.deposited;
-    const spentDelta = (this.spentPerToken.value -
-      balance.spentPerToken) as uint128;
-    const spent = (((balance.deposited as uint128) * spentDelta) /
-      scale) as uint64;
-    assert(spent + this.minDeposit.value > balance.deposited);
-    assert(spent < totalDeposit);
-    let rewardsKeptBps = wideRatio([balance.deposited, 10000], [spent]);
-    if (rewardsKeptBps > 10000) rewardsKeptBps = 10000;
+    assert(spent + this.minDeposit.value > deposited);
 
-    this.updateBalance(address, payment.amount);
+    if (spent > deposited) {
+      const rewardsKeptBps = (deposited * 10000) / spent;
+      this.sendRewards(address, this.txn.sender, 10000 - rewardsKeptBps);
+    }
+
     this.returnDeposit(address, this.txn.sender, 10000);
-    this.sendRewards(address, this.txn.sender, 10000 - rewardsKeptBps);
 
     log(rawBytes(this.balances(address).value));
   }
@@ -382,11 +378,7 @@ class OrangeMiner extends Contract {
       (minerReward as uint128) *
       medianPrice) /
       ((10000 as uint128) * scale)) as uint64;
-    const currentMinerEffort = isNewBlock
-      ? 0
-      : (this.miningApplication.value.globalState(
-          'current_miner_effort',
-        ) as uint64);
+
     const lastMiner = this.miningApplication.value.globalState(
       'last_miner',
     ) as Address;
@@ -402,12 +394,7 @@ class OrangeMiner extends Contract {
     if (lastMiner === this.app.address) {
       currentEffort = currentEffort - lastMinerEffort;
     }
-    // beat the current miner
-    let desiredEffort = currentMinerEffort + 1;
-    // but only if it's not too high
-    if (marketEffort < desiredEffort) {
-      desiredEffort = marketEffort;
-    }
+
     // refund tx + at least one juicing tx
     let toSpend = 2 * globals.minTxnFee;
 
@@ -421,8 +408,8 @@ class OrangeMiner extends Contract {
       totalTransactions = totalTransactions + 5;
     }
 
-    if (desiredEffort > currentEffort + toSpend) {
-      toSpend = desiredEffort - currentEffort;
+    if (marketEffort > currentEffort + toSpend) {
+      toSpend = marketEffort - currentEffort;
     }
 
     while (toSpend > 0 && totalTransactions < 256) {

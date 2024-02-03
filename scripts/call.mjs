@@ -20,14 +20,7 @@ function config(contract, app_id, atc, suggestedParams) {
   atc.addMethodCall({
     appID: app_id,
     method: contract.getMethodByName('updateConfig'),
-    methodArgs: [
-      100000,
-      20000,
-      10000,
-      algosdk.decodeAddress(
-        'TRCEY5UZGTATGTF5K3U42IMDT467D4EHV7S5MYJBMLMYARYJOZFATORMUM',
-      ).publicKey,
-    ],
+    methodArgs: [100000, 20000, 9900],
     appForeignAssets: [1284444444, 1294765516],
     appForeignApps: [1284326447],
     boxes: [
@@ -82,7 +75,7 @@ async function update(app_id, atc, suggestedParams) {
   atc.addTransaction({
     txn: algosdk.makeApplicationUpdateTxnFromObject({
       appIndex: app_id,
-      from: 'ORANGESCU7XMR2TFXSFTOHCUHNP6OYEPIKZW3JZANTCDHVQYMGQFYFIDDA',
+      from: creator.addr,
       approvalProgram: compiledApprovalProgram,
       clearProgram: compiledClearProgram,
       suggestedParams,
@@ -94,7 +87,7 @@ async function update(app_id, atc, suggestedParams) {
 function deposit(contract, app_id, atc, suggestedParams, amount) {
   atc.addTransaction({
     txn: algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-      from: 'ORANGESCU7XMR2TFXSFTOHCUHNP6OYEPIKZW3JZANTCDHVQYMGQFYFIDDA',
+      from: creator.addr,
       to: algosdk.getApplicationAddress(app_id),
       amount: amount,
       suggestedParams,
@@ -108,9 +101,7 @@ function deposit(contract, app_id, atc, suggestedParams, amount) {
     boxes: [
       {
         appIndex: app_id,
-        name: algosdk.decodeAddress(
-          'ORANGESCU7XMR2TFXSFTOHCUHNP6OYEPIKZW3JZANTCDHVQYMGQFYFIDDA',
-        ).publicKey,
+        name: algosdk.decodeAddress(creator.addr).publicKey,
       },
       {
         appIndex: app_id,
@@ -142,9 +133,7 @@ function withdraw(
     boxes: [
       {
         appIndex: app_id,
-        name: algosdk.decodeAddress(
-          'ORANGESCU7XMR2TFXSFTOHCUHNP6OYEPIKZW3JZANTCDHVQYMGQFYFIDDA',
-        ).publicKey,
+        name: algosdk.decodeAddress(creator.addr).publicKey,
       },
     ],
     signer,
@@ -171,9 +160,7 @@ function mine(contract, app_id, atc, suggestedParams, lastMiner) {
     boxes: [
       {
         appIndex: app_id,
-        name: algosdk.decodeAddress(
-          'ORANGESCU7XMR2TFXSFTOHCUHNP6OYEPIKZW3JZANTCDHVQYMGQFYFIDDA',
-        ).publicKey,
+        name: algosdk.decodeAddress(creator.addr).publicKey,
       },
       {
         appIndex: app_id,
@@ -209,8 +196,8 @@ async function main() {
   );
 
   await update(app_id, atc, suggestedParams);
-  // config(contract, app_id, atc, suggestedParams);
-  // deposit(contract, app_id, atc, suggestedParams, 10000000);
+  config(contract, app_id, atc, suggestedParams);
+  // deposit(contract, app_id, atc, suggestedParams, 20000000);
   // withdraw(contract, app_id, atc, suggestedParams, 10000, 10000);
   // mine(contract, app_id, atc, suggestedParams, lastMiner);
 

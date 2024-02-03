@@ -179,8 +179,6 @@ class OrangeMiner extends Contract {
     balance.rewardPerToken = this.rewardPerToken.value;
     balance.totalSpent = balance.totalSpent + spentToDate;
 
-    log(rawBytes(balance));
-
     this.totalDeposited.value = this.totalDeposited.value + balance.deposited;
   }
 
@@ -192,6 +190,9 @@ class OrangeMiner extends Contract {
 
     this.updatePerToken();
     this.updateBalance(this.txn.sender, payment.amount);
+
+    log(rawBytes(this.balances(this.txn.sender).value));
+
   }
 
   private sendRewards(from: Address, to: Address, bps: number): void {
@@ -236,6 +237,8 @@ class OrangeMiner extends Contract {
     this.updateBalance(this.txn.sender, 0);
     this.sendRewards(this.txn.sender, this.txn.sender, rewardsBps);
     this.returnDeposit(this.txn.sender, this.txn.sender, depositBps);
+
+    log(rawBytes(this.balances(this.txn.sender).value));
   }
 
   repay(address: Address): void {
@@ -262,6 +265,8 @@ class OrangeMiner extends Contract {
     this.updateBalance(address, payment.amount);
     this.returnDeposit(address, this.txn.sender, 10000);
     this.sendRewards(address, this.txn.sender, 10000 - rewardsKeptBps);
+
+    log(rawBytes(this.balances(address).value));
   }
 
   private updatePrice(): uint128 {

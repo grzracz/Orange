@@ -193,8 +193,6 @@ class OrangeMiner extends Contract {
   }
 
   private sendRewards(from: Address, to: Address, bps: number): void {
-    assert(bps <= 10000);
-
     const balance = this.balances(from).value;
     const toSend = wideRatio([balance.claimable, bps], [10000]);
 
@@ -213,8 +211,6 @@ class OrangeMiner extends Contract {
   }
 
   private returnDeposit(from: Address, to: Address, bps: number): void {
-    assert(bps <= 10000);
-
     const balance = this.balances(from).value;
     const toSend = wideRatio([balance.deposited, bps], [10000]);
 
@@ -224,13 +220,16 @@ class OrangeMiner extends Contract {
         amount: toSend - 1,
         fee: 0,
       });
-
-      this.totalDeposited.value = this.totalDeposited.value - toSend;
-      balance.deposited = balance.deposited - toSend;
     }
+
+    this.totalDeposited.value = this.totalDeposited.value - toSend;
+    balance.deposited = balance.deposited - toSend;
   }
 
   withdraw(rewardsBps: number, depositBps: number): void {
+    assert(rewardsBps <= 10000);
+    assert(depositBps <= 10000);
+
     this.updatePerToken();
     this.updateBalance(this.txn.sender, 0);
     this.sendRewards(this.txn.sender, this.txn.sender, rewardsBps);

@@ -208,15 +208,15 @@ async function main() {
     Buffer.from(lastMinerKv.value.bytes, 'base64'),
   );
 
-  // await update(app_id, atc, suggestedParams);
+  await update(app_id, atc, suggestedParams);
   // config(contract, app_id, atc, suggestedParams);
-  // deposit(contract, app_id, atc, suggestedParams, 100000000);
+  // deposit(contract, app_id, atc, suggestedParams, 10000000);
   // withdraw(contract, app_id, atc, suggestedParams, 10000, 10000);
-  mine(contract, app_id, atc, suggestedParams, lastMiner);
+  // mine(contract, app_id, atc, suggestedParams, lastMiner);
 
   console.log(`Calling ${app_id} on ${process.env.NETWORK}...`);
   atc.execute(algodClient, 4).catch(e => console.error(e));
-  setTimeout(main, 1000);
+  // setTimeout(main, 1000);
 }
 
 main();

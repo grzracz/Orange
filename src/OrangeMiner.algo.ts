@@ -35,8 +35,6 @@ class OrangeMiner extends Contract {
   totalSpent = GlobalStateKey<number>();
   // LP withdrawn so far
   totalWithdrawn = GlobalStateKey<number>();
-  // total mined so far, updated on LP deposits
-  totalMined = GlobalStateKey<number>();
 
   // ALGO spent at time of last update (for delta)
   lastSpent = GlobalStateKey<number>();

@@ -20,7 +20,7 @@ function config(contract, app_id, atc, suggestedParams) {
   atc.addMethodCall({
     appID: app_id,
     method: contract.getMethodByName('updateConfig'),
-    methodArgs: [100000, 20000, 9900],
+    methodArgs: [100000, 20000, 10000],
     appForeignAssets: [1284444444, 1294765516],
     appForeignApps: [1284326447],
     boxes: [
@@ -195,9 +195,9 @@ async function main() {
     Buffer.from(lastMinerKv.value.bytes, 'base64'),
   );
 
-  await update(app_id, atc, suggestedParams);
+  // await update(app_id, atc, suggestedParams);
   config(contract, app_id, atc, suggestedParams);
-  // deposit(contract, app_id, atc, suggestedParams, 20000000);
+  // deposit(contract, app_id, atc, suggestedParams, 200000000);
   // withdraw(contract, app_id, atc, suggestedParams, 10000, 10000);
   // mine(contract, app_id, atc, suggestedParams, lastMiner);
 

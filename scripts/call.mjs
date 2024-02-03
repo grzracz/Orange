@@ -195,8 +195,8 @@ async function main() {
     Buffer.from(lastMinerKv.value.bytes, 'base64'),
   );
 
-  // await update(app_id, atc, suggestedParams);
-  config(contract, app_id, atc, suggestedParams);
+  await update(app_id, atc, suggestedParams);
+  // config(contract, app_id, atc, suggestedParams);
   // deposit(contract, app_id, atc, suggestedParams, 200000000);
   // withdraw(contract, app_id, atc, suggestedParams, 10000, 10000);
   // mine(contract, app_id, atc, suggestedParams, lastMiner);

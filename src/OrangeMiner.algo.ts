@@ -48,6 +48,8 @@ class OrangeMiner extends Contract {
 
   lastPriceRound = GlobalStateKey<number>();
 
+  pendingCost = GlobalStateKey<number>();
+
   prices = BoxKey<StaticArray<uint128, 10>>({ key: 'p' });
 
   balances = BoxMap<Address, MinerBalance>();
@@ -77,6 +79,7 @@ class OrangeMiner extends Contract {
     this.rewardPerToken.value = 0 as uint128;
 
     this.lastPriceRound.value = 0;
+    this.pendingCost.value = 0;
   }
 
   @allow.bareCall('UpdateApplication')
@@ -337,7 +340,9 @@ class OrangeMiner extends Contract {
       fee: 0,
     });
     this.pendingGroup.submit();
-    this.totalSpent.value = this.totalSpent.value + amountB;
+    this.totalSpent.value =
+      this.totalSpent.value + amountB + this.pendingCost.value;
+    this.pendingCost.value = 0;
   }
 
   mine(): void {
@@ -363,7 +368,7 @@ class OrangeMiner extends Contract {
       name: 'mine',
       methodArgs: [this.app.address],
     });
-    this.totalSpent.value = this.totalSpent.value + expandCost;
+    this.pendingCost.value = this.pendingCost.value + expandCost;
 
     const currentPrice = this.updatePrice();
     const medianPrice = this.prices.value[4];
@@ -425,7 +430,7 @@ class OrangeMiner extends Contract {
       }
 
       toSpend = toSpend - fee;
-      this.totalSpent.value = this.totalSpent.value + fee;
+      this.pendingCost.value = this.pendingCost.value + fee;
 
       sendMethodCall<[Address], void>({
         applicationID: this.miningApplication.value,
@@ -441,7 +446,7 @@ class OrangeMiner extends Contract {
       amount: globals.minTxnFee,
       fee: 0,
     });
-    this.totalSpent.value = this.totalSpent.value + globals.minTxnFee;
+    this.pendingCost.value = this.pendingCost.value + globals.minTxnFee;
 
     if (addLiquidity) {
       this.addLiquidity(

@@ -346,6 +346,9 @@ class OrangeMiner extends Contract {
   }
 
   mine(): void {
+    // ensure rewards will go to someone
+    assert(this.totalDeposited.value > 0);
+
     // ensure not already winning
     const block = globals.round - (globals.round % 5);
     const isNewBlock =
@@ -372,6 +375,7 @@ class OrangeMiner extends Contract {
 
     const currentPrice = this.updatePrice();
     const medianPrice = this.prices.value[4];
+    const bestPrice = currentPrice < medianPrice ? currentPrice : medianPrice;
     const scale = SCALE as uint128;
 
     const minerReward = this.miningApplication.value.globalState(
@@ -379,7 +383,7 @@ class OrangeMiner extends Contract {
     ) as uint64;
     const marketEffort = (((this.marketRateBps.value as uint128) *
       (minerReward as uint128) *
-      medianPrice) /
+      bestPrice) /
       ((10000 as uint128) * scale)) as uint64;
 
     const lastMiner = this.miningApplication.value.globalState(
